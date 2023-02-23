@@ -251,4 +251,7 @@ if __name__ == "__main__":      #Main function executes all functions in the scr
    Dictionary2=Calculate_Results(Dictionary2,Data2)
    Dictionary1=Calculate_Statistical_Results(Dictionary1,Dictionary2, Data1)
    Comparison=Compare_Results(Dictionary1,Dictionary2,Data2)
-   Write_Results_To_File(Dictionary1, Com
+   Write_Results_To_File(Dictionary1, Comparison)
+   
+   
+   
