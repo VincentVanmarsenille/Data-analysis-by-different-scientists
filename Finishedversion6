@@ -2,7 +2,7 @@
 import os
 import sys
 import numpy as np
-from colorama import Fore      #Use of colours in python console (easier debugging)
+from colorama import Fore      #Use of colours in python console (easier debugging), make sure colorama is installed!
 import scipy as sp  #Welch's t-test (t-test for independent samples, does not assume same var) and F-test (var1==var2?)
 from scipy import stats
 import pandas as pd
