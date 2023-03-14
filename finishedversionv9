@@ -1,0 +1,369 @@
+# Comparing the results from data-analysis performed by different scientists
+import os
+import sys
+import numpy as np
+from colorama import Fore  # Use of colours in python console (easier debugging)
+import scipy as sp  # Welch's t-test (t-test for independent samples, does not assume same var) and F-test (var1==var2?)
+from scipy import stats
+import pandas as pd
+import re
+
+def change_order(Data1, Data2):       #Changes filenames, sorts alphabetically and then it reverts the filenames again to the initial filenames
+    letters=str(input(Fore.LIGHTBLACK_EX + "Which letters and/or numbers do you want to remove from the filenames? "))
+    answer=str(input("Do you want to remove from Data1 or Data2? ")).upper()
+    if answer=='Data1'.upper():
+       print("Removing from Data1!")
+
+       print("Before: ", Data1)
+       for index in range(len(Data1)):            #Changing filenames
+           Data1[index] = re.sub(letters, "", Data1[index])
+       print("After: ", Data1)
+       Data1.sort()    #sorts the file
+
+
+       for index in range(len(Data1)):
+           if (Data1[index].endswith(".csv")):
+               Data1[index] = letters + Data1[index]
+       return Data1
+
+    elif answer=='Data2'.upper():
+       print(Fore.BLACK + "Removing from Data2")
+
+       print("Before: ", Data2)
+       for index in range(len(Data2)):
+             Data2[index] = re.sub(letters, "", Data2[index])
+       print("After: ", Data2)
+       Data2.sort()     #sorts the file
+
+
+       for index in range(len(Data2)):
+           if (Data2[index].endswith(".csv")):
+               Data2[index]=letters+Data2[index]
+       return Data2
+
+    else:
+         print("You did not answer with Data1 or Data2, exiting program.")
+         sys.exit()
+
+# T-test uses population variance (for the smaller datasets as well, you can compare the individual values with eachother)
+# T-test p-value<0.05 mean1!=mean2 alternative hypothesis       (null hypothesis mean1==mean2)
+# F-test p-value<0.05 var1!=var2 alternative hypothesis         (null hypothesis var1==var2)
+
+def Colour_Coding_Info():
+    #print("INFO ABOUT THE STATISTICAL TEST COLOUR SCHEMES:")
+    #print(Fore.RED + "Red: <90% confidence level, or more than 10% difference in average, stdev, median, variance of the files")
+    #print(Fore.YELLOW + "Yellow: 90% confidence level, or less than 10% difference in average, stdev, median, variance of the files")
+    #print(Fore.BLUE + "Blue: 95% confidence level, or less than 5% difference in average, stdev, median, variance of the files")
+    #print(Fore.GREEN + "Green: 99% confidence level, or less than 1% difference in average, stdev, median, variance of the files")
+    print(Fore.LIGHTCYAN_EX + "The Welch t-test is a 2-tailed t-test that checks whether the files have the same average values, whilst assuming that var1 != var2.")
+    print(Fore.LIGHTCYAN_EX + "The F-test checks if both datasets have the same variance.")
+
+def Read_In_Data(path):  # Appends every file (only csv and txt) into a list
+    Data = []
+    for root, dirs, files, in os.walk(path):
+        for filename in files:
+            file = open(os.path.join(root, filename), "r")
+            if (filename.endswith("txt") or filename.endswith("csv")):
+                Data.append(filename)
+                file.close()
+    Data=sorted(Data) #Sort the filenames alphabetically
+    return Data
+
+
+def Generate_Dictionaries(Data, path):
+    Dictionaries = []  # List containing a dictionary for each file
+    for filename in Data:  # Append files and corresponding data as dictionary to Dictionaries list
+        print("filename:", filename)
+        for root, dirs, files in os.walk(path):
+            for name in files:
+                if (filename == name):
+                    filepath = os.path.join(path, filename)
+                    file = open(os.path.join(root, filename), "r")
+                    print("path:", filepath)
+                    print("Reading in Dataset!")
+                    if filename.endswith("txt"):
+                        content = pd.read_csv(file, decimal=".", skip_blank_lines=True, on_bad_lines='warn',header=None, dtype=float, delimiter='\s+', skiprows=4, usecols=[5, 7])
+                        content = content.to_numpy()
+
+
+                    if "outcome" in filename:
+                        print(Fore.RED + "outcome in filename!!!!!!!!!!!")
+                        content = pd.read_csv(file, decimal=".", sep="\t|,|\s+", skip_blank_lines=True,on_bad_lines='warn', header=None, skiprows=1, usecols=[0, 1], dtype=str)
+                        content = content.fillna(value=np.nan)
+                        cols = content.columns
+                        content[cols] = content[cols].apply(pd.to_numeric,
+                                                            errors='coerce')  # replacing strings/non-numeric values to np.nan
+                        content = content.to_numpy()
+
+                    elif "De_integral_overview" in filename:
+                        print(Fore.RED + "De_integral_overview in filename!!!!!!!!!!!")
+                        content = pd.read_csv(file, decimal=",", sep="\t|s+", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, index_col=0,usecols=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], dtype=str)
+                        content = content.fillna(value=np.nan)
+                        cols = content.columns
+                        content[cols] = content[cols].apply(pd.to_numeric, errors='coerce')
+                        content = content.to_numpy()
+
+                    elif "integral" in filename:
+                        print(Fore.RED + "integral in filename!!!!!!!!!!!")
+                        content = pd.read_csv(file, decimal=",", sep="\t|\s+", skip_blank_lines=True,on_bad_lines='warn', header=None, skiprows=1, index_col=0)
+                        # del content[content.columns[0:3]]
+                        content = content.iloc[:, 3:]
+                        cols = content.columns
+                        content[cols] = content[cols].apply(pd.to_numeric,
+                                                            errors='coerce')  # Replacing one value that is read in weirdly to np.nan
+                        # content.replace(",",".")
+                        # content.astype(float)
+                        content = content.to_numpy()
+
+                    elif filename.endswith("csv"):
+                        content = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                        content = content.to_numpy()
+
+                    Dataset = {'name': filename, 'Dataset': content}
+                    Dictionaries.append(Dataset)
+                    print(Fore.BLACK + "Dataset: ", Dataset['Dataset'], '\n' "shape:", Dataset['Dataset'].shape)
+    return Dictionaries
+
+
+def Compare_Data(Dictionaries1, Dictionaries2):  # Check if the amount of files to be compared is equal
+    if (len(Dictionaries1) == len(Dictionaries2)):
+        return True
+    else:
+        return False
+
+
+def Compare_Datapoints(Dictionaries1,
+                       Dictionaries2):  # Compares if both datasets contains the same amount of files + the same amount of datapoints
+    for index in range(len(Dictionaries1)):  # amount of files should be the same so Dictionaries1=Dictionaries2
+        if (Dictionaries1[index]['Dataset'].shape == Dictionaries2[index]['Dataset'].shape):
+            pass
+        else:
+            return False
+    return True
+
+
+def Calculate_Results(Dictionaries, Data):  # Calculates quick and easily interpretable comparison results
+    for index in range(len(Data)):
+        # print("results filename: ", Dictionaries[index]['name'])
+        datamatrix = Dictionaries[index]['Dataset']
+        average = np.nanmean(datamatrix, axis=0)  # Calculate variances, averages, stdevs and medians for each column
+        stdev = np.nanstd(datamatrix, axis=0)
+        variance = np.nanvar(datamatrix, axis=0)
+        median = np.nanmedian(datamatrix, axis=0)
+        Dictionaries[index]['average'] = average
+        Dictionaries[index]['stdev'] = stdev
+        Dictionaries[index]['variance'] = variance
+        Dictionaries[index]['median'] = median
+        print(Fore.BLUE + "Filename: ", Dictionaries[index]['name'])
+        print("Dataframe shape", Dictionaries[index]['Dataset'].shape)
+        print("average: ", Dictionaries[index]['average'])
+        print("stdev: ", Dictionaries[index]['stdev'])
+        print("variance: ", Dictionaries[index]['variance'])
+        print("median: ", Dictionaries[index]['median'])
+    return Dictionaries
+
+
+def Calculate_Statistical_Results(Dictionary1, Dictionary2,Data):  # Calculates F-test t-test, results stored in Dictionary1
+    for index in range(len(Data)):
+        print(Fore.GREEN + "Statistical t-Tests filenames: ", Dictionary1[index]['name'])
+        datamatrix1 = Dictionary1[index]['Dataset']
+        datamatrix2 = Dictionary2[index]['Dataset']
+        All_Results_File = []
+        print('\n', 'datamatrix1: ', datamatrix1.shape)
+        print('\n', 'datamatrix2: ', datamatrix2.shape)
+        for column in range(datamatrix1.shape[1]):
+            column1 = datamatrix1[:, column]
+            column2 = datamatrix2[:, column]
+            Results_ttest = sp.stats.ttest_ind(column1, column2, equal_var=False, alternative='two-sided',
+                                               nan_policy='omit')
+            All_Results_File.append(Results_ttest)
+        Dictionary1[index]["Statistical t-Tests"] = np.array(All_Results_File)
+        print("Filename: ", Dictionary1[index]['name'], "Statistical t-tests: ", All_Results_File)
+
+    for index in range(len(Data)):
+        print(Fore.MAGENTA + "Statistical f-Tests filename: ", Dictionary1[index]['name'])
+        print("Dataset shape", Dictionary1[index]['Dataset'].shape)
+        datamatrix1 = Dictionary1[index]['Dataset']
+        datamatrix2 = Dictionary2[index]['Dataset']
+        print("datamatrix1", datamatrix1)
+        All_Results_File = []
+        f1 = np.divide(np.nanvar(datamatrix1, axis=0),
+                       np.nanvar(datamatrix2, axis=0))  # calculate F test statistic; maybe removed ddof for population
+        f2 = np.divide(np.nanvar(datamatrix2, axis=0), np.nanvar(datamatrix1, axis=0))  # is used when f1<1
+        for column in range(datamatrix1.shape[1]):
+            if (f1[column] >= 1):
+                dfn = datamatrix1.shape[
+                          0] - 1  # define degrees of freedom numerator     #Note to self: .shape[0] because amount of data in certain column (rows)
+                dfd = datamatrix2.shape[
+                          0] - 1  # define degrees of freedom denominator   #Note to self: maybe that this out of the loop
+                p = 1 - sp.stats.f.cdf(f1[column], dfn, dfd)  # find p-value of F test statistic
+                print("f1", f1)
+                print("p", p)  # if p-value<0.05 then variances of both columns are not equal
+                All_Results_File.append(p)
+            else:
+                dfd = datamatrix1.shape[0] - 1  # define degrees of freedom denominator
+                dfn = datamatrix2.shape[0] - 1  # define degrees of freedom numerator
+                p = 1 - sp.stats.f.cdf(f2[column], dfn, dfd)  # find p-value of F test statistic
+                print("f2", f2)
+                print("p", p)
+                All_Results_File.append(p)
+        Dictionary1[index]["Statistical f-Tests"] = np.array(All_Results_File)
+    return Dictionary1
+
+
+def Interpret_Statistical_Results(Data, Dictionary1):          #Currently not used
+    print("///////////////////////////////////////T-test Results//////////////////////////////////////////////////")
+    for index in range(len(Data)):
+        print("/////////////////////////////////////NEW FILE/////////////////////////////////////////////////////////")
+        print("P-value interpretation Filename: ", Data[index]["name"])
+        datamatrix1 = Dictionary1[index]['Dataset']
+        for column in datamatrix1.shape[0]:
+            print("COLUMN: ", column)
+            pvalue_ttest = Dictionary1[index]["Statistical t-Tests"].pvalue
+            if (pvalue_ttest < 0.01):
+                print(Fore.GREEN + pvalue_ttest)
+            elif (pvalue_ttest > 0.01 and pvalue_ttest <= 0.05):
+                print(Fore.YELLOW + pvalue_ttest)
+            elif (pvalue_ttest > 0.05 and pvalue_ttest >= 0.10):
+                print(Fore.BLUE + pvalue_ttest)
+            else:
+                print(Fore.RED + pvalue_ttest)
+
+    print("///////////////////////////////////////F-test Results//////////////////////////////////////////////////")
+    for index in range(len(Data)):
+        print("/////////////////////////////////////NEW FILE/////////////////////////////////////////////////////////")
+        print("p-value interpretation Filename:", Data[index]["name"])
+        datamatrix1 = Dictionary1[index]['Dataset']
+        for column in datamatrix1.shape[0]:
+            print("COLUMN:", column)
+            pvalue_ftest = Dictionary1[index]["Statistical f-Tests"].pvalue
+            if (pvalue_ftest < 0.01):
+                print(Fore.GREEN + pvalue_ftest)
+            elif (pvalue_ftest > 0.01 and pvalue_ftest <= 0.05):
+                print(Fore.YELLOW + pvalue_ftest)
+            elif (pvalue_ftest > 0.05 and pvalue_ftest >= 0.10):
+                print(Fore.BLUE + pvalue_ftest)
+            elif (pvalue_ftest > 0.10):
+                print(Fore.RED + pvalue_ftest)
+
+
+def Compare_Results(Dictionaries1, Dictionaries2, Data):
+    List_Results_Ratios = []
+    for index in range(len(Data)):  # Do numpy slicing and divide
+        Results_Ratios = np.divide(Dictionaries1[index]["average"], Dictionaries2[index]["average"])
+        List_Results_Ratios.append(Results_Ratios)
+        Array_Results_Ratios = np.array(List_Results_Ratios, dtype=object)
+        # print(Fore.YELLOW + "Array_Results_Ratios", Array_Results_Ratios)
+    return List_Results_Ratios
+
+
+def show_results():
+    answer = str(input(
+        Fore.YELLOW + "Do you want to disable the writing out of averages etc. for large datasets (over 30 columns)? Answer with y or n: "))
+    if (answer.upper() == "Y"):  # Function that shows the results of the statistical tests for large datasets
+        return True  # Function that shows the results of the average, stdev, var, median for rather small datasets
+    return False
+
+
+def Write_Statistics(Dictionary1, file, index, path1, path2):
+    print(Fore.BLUE + "Filename: ", Dictionary1[index]['name'])
+    print("Statistical t-tests", Dictionary1[index]['Statistical t-Tests'])
+    print("Statistical f-tests", Dictionary1[index]['Statistical f-Tests'])
+
+    file.write("///////////////////////////////////////////////////////FILENAME: " + str(
+        Dictionary1[index]['name'] + "///////////////////////////////////////////////////////////" + "\n"))
+    file.write("\n" + "Path 1: " + str(path1) + "\n")
+    file.write("Path 2: " + str(path2) + "\n")
+    file.write("\n" + "Rows: " + str(Dictionary1[index]['Dataset'].shape[0]) + "  Columns: " + str(
+        Dictionary1[index]['Dataset'].shape[1]) + "\n")
+    file.write("\n" + "Statistical t-tests" + "\n")
+
+    for column in range(len(Dictionary1[index]["Statistical t-Tests"])):
+        file.write("Column " + str(column) + ": ")
+        file.write(str(Dictionary1[index]['Statistical t-Tests'][column][1]) + "\n")
+    file.write("\n" + "Statistical f-tests" + "\n")
+    for column in range(len(Dictionary1[index]["Statistical t-Tests"])):
+        file.write("Column " + str(column) + ": ")
+        file.write(str(Dictionary1[index]['Statistical f-Tests'][column]) + "\n")
+    return file
+
+
+def Write_Results(List_Result_Ratios, file, Feedback, index, Dictionary1, Dictionary2):  # Prints results for each file
+
+    file.write("\n" + "Averages ratio: ")
+    for Column in range(len(List_Result_Ratios[index])):
+        file.write("\n" + "Column " + str(Column) + ': ' + str(List_Result_Ratios[index][Column]))
+    file.write("\n")
+
+    if (len(Dictionary1[index]['average']) > 30 and Feedback):
+        file.write("\n")
+
+    if Feedback:
+        if (len(Dictionary1[index]['average']) < 30):
+            file.write("\n" + "Calculation results file 1." + "\n")
+            file.write("Average:" + "\n" + str(Dictionary1[index]['average']) + "\n")
+            file.write("Stdev: " + "\n" + str(Dictionary1[index]['stdev']) + "\n")
+            file.write("Variance:" + "\n" + str(Dictionary1[index]['variance']) + "\n")
+            file.write("Median: " + "\n" + str(Dictionary1[index]['median']) + "\n")
+
+            file.write("\n" + "Calculation results file 2." + "\n")
+            file.write("Average:" + "\n" + str(Dictionary2[index]['average']) + "\n")
+            file.write("Stdev: " + "\n" + str(Dictionary2[index]['stdev']) + "\n")
+            file.write("Variance: " + "\n" + str(Dictionary2[index]['variance']) + "\n")
+            file.write("Median: " + "\n" + str(Dictionary2[index]['median']) + "\n")
+            file.write("\n")
+    else:
+        file.write("\n" + "Calculation results file 1." + "\n")
+        file.write("Average:" + "\n" + str(Dictionary1[index]['average']) + "\n")
+        file.write("Stdev: " + "\n" + str(Dictionary1[index]['stdev']) + "\n")
+        file.write("Variance:" + "\n" + str(Dictionary1[index]['variance']) + "\n")
+        file.write("Median: " + "\n" + str(Dictionary1[index]['median']) + "\n")
+
+        file.write("\n" + "Calculation results file 2." + "\n")
+        file.write("Average:" + "\n" + str(Dictionary2[index]['average']) + "\n")
+        file.write("Stdev: " + "\n" + str(Dictionary2[index]['stdev']) + "\n")
+        file.write("Variance: " + "\n" + str(Dictionary2[index]['variance']) + "\n")
+        file.write("Median: " + "\n" + str(Dictionary2[index]['median']) + "\n")
+        file.write("\n")
+    return file
+
+
+if __name__ == "__main__":  # Main function executes all functions in the script until file with comparison results is generated
+    Colour_Coding_Info()
+    Feedback = show_results()
+    # path1 = input(Fore.LIGHTWHITE_EX + "Please paste the path that contains the directory with files: ")
+    # path2 = input(Fore.LIGHTWHITE_EX + "Please paste the path that contains the directory with the files with which you want to compare: ")
+    path1 = r"C:\Users\Vincent2\PycharmProjects\Carbyonscript\COMPARE FILES\output Dries"
+    path2 = r"C:\Users\Vincent2\PycharmProjects\Carbyonscript\COMPARE FILES\output selfmade"
+
+    Data1 = Read_In_Data(path1)
+    Data2 = Read_In_Data(path2)
+    print(Fore.BLACK + "Data1: ", Data1)
+    print(Fore.BLACK + "Data2: ", Data2)
+    change_order(Data1, Data2)
+    print(Fore.BLACK +"Data1 sorted: ", Data1)
+    print(Fore.BLACK +"Data2 sorted: ", Data2)
+    Dictionary1 = Generate_Dictionaries(Data1, path1)
+    Dictionary2 = Generate_Dictionaries(Data2, path2)
+
+    if Compare_Data(Dictionary1, Dictionary2):
+        print(Fore.GREEN + "Both datasets contain the same amount of readable files.")
+    else:
+        print(Fore.RED + "Datasets do not contain the same amount of readable files!!!")
+        sys.exit("ERROR: Check the amount of files in both folders.")
+    if Compare_Data(Dictionary1, Dictionary2):
+        print(Fore.GREEN + "Dataset of each file contains the same amount of datapoints.")
+    else:
+        print(Fore.RED + "Dataset of each file does not contain the same amount of datapoints!!!")
+        sys.exit("ERROR:  Amount of datapoints that can be compared")
+    Dictionary1 = Calculate_Results(Dictionary1, Data1)
+    Dictionary2 = Calculate_Results(Dictionary2, Data2)
+    Dictionary1 = Calculate_Statistical_Results(Dictionary1, Dictionary2, Data1)
+    Comparison = Compare_Results(Dictionary1, Dictionary2, Data2)
+    file = open("ResultsComparisonScript.txt", "x")
+    for index in range(len(Dictionary1)):
+        Write_Statistics(Dictionary1, file, index, path1, path2)
+        Write_Results(Comparison, file, Feedback, index, Dictionary1, Dictionary2)
+    file.close()
+    print(Fore.YELLOW + "Calculations are done =)")
+    print("You can find your file with name", file, " in the same folder as this python script.")
