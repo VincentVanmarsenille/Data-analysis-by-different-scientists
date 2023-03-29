@@ -1,0 +1,791 @@
+#Script that compares differences between Pluto and Rataplan
+from matplotlib import pyplot as plt
+import pandas as pd
+import os
+import sys
+import numpy as np
+import scipy.stats as sp
+import re
+from colorama import Fore
+
+def Find_Files(Path):
+    filenames=[]
+    for root, dirs, files, in os.walk(Path):
+        for filename in files:
+            file = open(os.path.join(root, filename), "r")
+            if filename.endswith("csv"):
+               filenames.append(filename)
+    return filenames
+
+def Ask_Remove_File():
+    print('Rataplan files: ', Files_Rataplan)
+    print('Pluto files ', Files_Pluto)
+    print('Amount of Rataplan files: ', len(Files_Rataplan))
+    print('Amount of Pluto files: ', len(Files_Pluto))
+    Remove_File = str(input("From which file do you want to remove? Answer Files_Pluto or Files_Rataplan: ")).upper()
+    return Remove_File
+
+def Ask_Remove_Letters():
+    letters = str(input("Which letters do you want to remove?"))
+    return letters
+
+def Manage_Filenames(Files_Rataplan, Files_Pluto, Letters, Remove_File):
+    if Remove_File==str(Files_Pluto).upper():
+        for index in range(len(Files_Pluto)):
+            Files_Pluto[index]=re.sub(letters, "", Files_Pluto[index])
+        return Files_Pluto
+
+    elif Remove_File==str(Files_Rataplan).upper():
+        for index in range(len(Files_Rataplan)):
+            Files_Pluto[index]=re.sub(letters, "", Files_Pluto[index])
+        return Files_Rataplan
+
+
+def Find_Corresponding_Files(Files_Rataplan, Files_Pluto, Remove_File, Letters):
+    Corresponding_Files=[]
+    if len(Files_Pluto)>=len(Files_Rataplan):
+       for filename in Files_Pluto:
+           if filename in Files_Rataplan:
+               Corresponding_Files.append(filename)
+
+    else:
+        for filename in Files_Rataplan:
+            if filename in Files_Pluto:
+                Corresponding_Files.append(filename)
+    print("Amount of corresponding files: ", len(Corresponding_Files))
+    print("Corresponding files: ", Corresponding_Files)
+    return Corresponding_Files
+
+
+def Read_Pluto_Outcome(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "outcome" in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=".", sep="\t|,|\s+", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, usecols=[0, 1], dtype=str)
+                        array = array.fillna(value=np.nan)
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric, errors='coerce')  # replacing strings/non-numeric values to np.nan
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [0,1]}
+                        Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ","\n", Dataset['Dataset'].shape)
+                        print("Read Pluto outcome called")
+                        file.close()
+    return Dictionaries_Pluto
+
+
+def Read_Pluto_Integral(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "integral" in Files_Pluto[index] and "De_integral_overview" not in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t|s+", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, index_col=0, engine='python', usecols=[0,1,2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,16])
+                        array = array.iloc[:, 3:]
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric, errors='coerce')  # Replacing one value that is read in weirdly to np.nan
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [2,3, 4, 5, 6, 7, 8, 9, 10, 11, 12,13,14,15,16]}
+                        Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto integral called")
+                        file.close()
+    return Dictionaries_Pluto
+
+def Read_Pluto_Integral_overview(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "De_integral_overview" in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File==Files_Pluto and type(letters)==str:
+                Files_Pluto[index]= str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t|s+", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0,usecols=[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], dtype=str, engine='python')
+                        array = array.fillna(value=np.nan)
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric, errors='coerce')
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [2,3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
+                        Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ","\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto integral overview called")
+                        file.close()
+    return Dictionaries_Pluto
+
+
+def Read_Pluto_Curves(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "curves" in Files_Pluto[index] and "total_curves" not in Files_Pluto[index] and "raw" not in Files_Pluto[index] and "corrected" not in Files_Pluto[index] and "De_corrected_curves" not in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        if "De_pocahontas" not in Files_Pluto[index]:
+                            file = open(os.path.join(root, name), "r")
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1, 2]}
+                            Dictionaries_Pluto.append(Dataset)
+                        else:
+                            file = open(os.path.join(root, name), "r")
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1,2]}
+                            Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto curves called")
+                        file.close()
+    return Dictionaries_Pluto
+
+def Read_Pluto_Total_Curves(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "total_curves" in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files and "pocahontas_total_curves" not in Files_Pluto[index]:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                        Dictionaries_Pluto.append(Dataset)
+                        print(Fore.BLACK + "Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto total curves called")
+                        file.close()
+    return Dictionaries_Pluto
+
+def Read_Pluto_Pocahontas_Total_Curves(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if Files_Pluto[index] in Corresponding_Files and "pocahontas_total_curves" in Files_Pluto[index]:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        if Files_Pluto[index] != "De_pocahontas_total_curves":
+                             array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                             array = array.to_numpy()
+                             Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                             Dictionaries_Pluto.append(Dataset)
+                        else:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                            Dictionaries_Pluto.append(Dataset)
+                        print(Fore.BLACK + "Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto total curves called")
+                        file.close()
+    return Dictionaries_Pluto
+
+
+def Read_Pluto_Corrected(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "corrected" in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File == Files_Pluto and type(letters)==str:
+                Files_Pluto[index] = str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        if "De_corrected" in Files_Pluto[index]:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1,2,3,4]}
+                            Dictionaries_Pluto.append(Dataset)
+                        else:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1,2,3,4]}
+                            Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto corrected called")
+                        file.close()
+    return Dictionaries_Pluto
+
+def Read_Pluto_Raw(Files_Pluto, Corresponding_Files, Remove_File, letters, Dictionaries_Pluto, Pluto_Path):
+    for index in range(len(Files_Pluto)):
+        if "raw" in Files_Pluto[index] and Files_Pluto[index] in Corresponding_Files:
+            if Remove_File==Files_Pluto and type(letters)==str:
+                Files_Pluto[index]= str(letters) + Files_Pluto[index]
+            for root, dirs, files in os.walk(Pluto_Path):
+                for name in files:
+                    if (Files_Pluto[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [1,2,3,4,5,6,7,8]}
+                        Dictionaries_Pluto.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Pluto raw called")
+                        file.close()
+    return Dictionaries_Pluto
+
+def Read_Pluto(Files_Pluto, Corresponding_Files, Remove_File, Letters, Pluto_Path):
+    print("Reading in Pluto files...")
+    Dictionaries_Pluto=[]
+    Read_Pluto_Outcome(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Integral(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Integral_overview(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Curves(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Total_Curves(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    #Read_Pluto_Pocahontas_Total_Curves(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Corrected(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path)
+    Read_Pluto_Raw(Files_Pluto, Corresponding_Files, Remove_File, Letters, Dictionaries_Pluto, Pluto_Path) # Data does not always contain the same info (see headers!)
+    print("Pluto files read in.")
+    return Dictionaries_Pluto
+
+def Read_Rataplan_Outcome(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "outcome" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files:
+            if Remove_File==Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index]= str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=".", sep="\t|,|\s+", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, usecols=[0, 1], dtype=str)
+                        array = array.fillna(value=np.nan)
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric, errors='coerce')  # replacing strings/non-numeric values to np.nan
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [0, 1]}
+                        Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan outcome called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+
+def Read_Rataplan_Integral_overview(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    print("Read integral overview called")
+    for index in range(len(Files_Rataplan)):
+        if "De_integral_overview" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files:
+            if Remove_File==Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index]= str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t|s+", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0,usecols=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,16], dtype=str, engine='python')
+                        array = array.fillna(value=np.nan)
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric, errors='coerce')
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
+                        Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan integral overview called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+def Read_Rataplan_Integral(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "integral" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files and "De_integral_overview" not in Files_Rataplan[index]:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+               Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t|\s+", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1,usecols=[0,1,2,3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], index_col=0, engine='python')
+                        array = array.iloc[:, 3:]
+                        cols = array.columns
+                        array[cols] = array[cols].apply(pd.to_numeric,errors='coerce')  # Replacing one value that is read in weirdly to np.nan
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [2,3, 4, 5, 6, 7, 8, 9, 10, 11, 12,13,14,15,16]}
+                        Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan integral called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+
+def Read_Rataplan_Curves(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "curves" in Files_Rataplan[index] and "total_curves" not in Files_Rataplan[index] and "raw" not in Files_Rataplan[index] and "corrected" not in Files_Rataplan[index]  and Files_Rataplan[index] in Corresponding_Files:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        if "De_pocahontas" not in Files_Rataplan[index]:
+                            file = open(os.path.join(root, name), "r")
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, usecols=[1,6])
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1, 6]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        else:
+                            file = open(os.path.join(root, name), "r")
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, usecols=[6,11])
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [6, 11]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan curves called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+
+def Read_Rataplan_Total_Curves(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "total_curves" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files and "pocahontas" not in Files_Rataplan[index]:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                        array = array.to_numpy()
+                        Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                        Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan total curves called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+def Read_Rataplan_Pocahontas_Total_Curves(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if Files_Rataplan[index] in Corresponding_Files and "pocahontas_total_curves" in Files_Rataplan[index]:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        if Files_Rataplan[index] != "De_pocahontas_total_curves":
+                             array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                             array = array.to_numpy()
+                             Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                             Dictionaries_Rataplan.append(Dataset)
+                        else:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        print(Fore.BLACK + "Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read Rataplan total curves called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+
+
+def Read_Rataplan_Corrected(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "corrected" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        if "De_corrected" in Files_Rataplan[index]:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, usecols=[3,4,5,6])
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [3,4,5,6]}
+                            Dictionaries_Rataplan.append(Dataset)
+
+                        else:
+                             array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                             array = array.to_numpy()
+                             Dataset = {'name': name, 'Dataset': array, 'cols': [1,2,3,4]}
+                             Dictionaries_Rataplan.append(Dataset)
+                        file.close()
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan corrected called")
+    return Dictionaries_Rataplan
+
+def Read_Rataplan_Raw(Files_Rataplan, Corresponding_Files, Remove_File, letters, Dictionaries_Rataplan, Rataplan_Path):
+    for index in range(len(Files_Rataplan)):
+        if "raw" in Files_Rataplan[index] and Files_Rataplan[index] in Corresponding_Files:
+            if Remove_File == Files_Rataplan and type(letters)==str:
+                Files_Rataplan[index] = str(letters)+Files_Rataplan[index]
+            for root, dirs, files in os.walk(Rataplan_Path):
+                for name in files:
+                    if (Files_Rataplan[index] == name):
+                        file = open(os.path.join(root, name), "r")
+                        if "_H2O_De_raw_curves.csv" in Files_Rataplan[index] or "_CO2-44_De_raw_curves.csv" in Files_Rataplan[index]:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, usecols= [5,6,7,8,9,10,11,12])
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [5,6,7,8,9,10,11,12]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        elif "Ad_de_raw_curves" in Files_Rataplan[index]:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn',header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [x for x in range(array.shape[1])]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        else:
+                            array = pd.read_csv(file, decimal=",", sep="\t", skip_blank_lines=True, on_bad_lines='warn', header=None, skiprows=1, index_col=0)
+                            array = array.to_numpy()
+                            Dataset = {'name': name, 'Dataset': array, 'cols': [1,2,3,4,5,6,7,8]}
+                            Dictionaries_Rataplan.append(Dataset)
+                        print("Filename: ", Dataset['name'])
+                        print("Dataset: ", "\n", Dataset['Dataset'][:10, :])
+                        print("Dataset shape: ", "\n", Dataset['Dataset'].shape)
+                        print("Read rataplan rawFiles_ called")
+                        file.close()
+    return Dictionaries_Rataplan
+
+def Read_Rataplan(Remove_File, Corresponding_Files, Letters, Files_Pluto, Rataplan_Path):
+    print("Reading in Rataplan files...")
+    Dictionaries_Rataplan=[]
+    Read_Rataplan_Outcome(Files_Rataplan, Corresponding_Files, Remove_File, Letters, Dictionaries_Rataplan, Rataplan_Path)
+    Read_Rataplan_Integral(Files_Rataplan, Corresponding_Files, Remove_File, Letters, Dictionaries_Rataplan, Rataplan_Path)
+    Read_Rataplan_Integral_overview(Files_Rataplan, Corresponding_Files, Remove_File, Letters, Dictionaries_Rataplan,Rataplan_Path)
+    Read_Rataplan_Curves(Files_Rataplan, Corresponding_Files, Remove_File, Letters,Dictionaries_Rataplan, Rataplan_Path)
+    Read_Rataplan_Total_Curves(Files_Rataplan, Corresponding_Files, Remove_File, Letters,Dictionaries_Rataplan, Rataplan_Path)
+    #Read_Rataplan_Pocahontas_Total_Curves(Files_Rataplan, Corresponding_Files, Remove_File, Letters, Dictionaries_Rataplan,Rataplan_Path)
+    Read_Rataplan_Corrected(Files_Rataplan, Corresponding_Files, Remove_File, Letters,Dictionaries_Rataplan, Rataplan_Path)
+    Read_Rataplan_Raw(Files_Rataplan, Corresponding_Files, Remove_File, Letters,Dictionaries_Rataplan, Rataplan_Path)  # Data does not always contain the same info (see headers!)
+    print("Rataplan files read in.")
+    return Dictionaries_Rataplan
+
+
+####################################################try except raise warning functions#############################################################################################
+
+def check_shapes(Dictionaries_Pluto, Dictionaries_Rataplan, Corresponding_Files):
+    for index in range(len(Dictionaries_Rataplan)):
+        for index in range(len(Dictionaries_Pluto)):
+            if Dictionaries_Pluto[index]['name'] == Dictionaries_Rataplan[index]['name']:
+               if Dictionaries_Rataplan[index]['Dataset'].shape[1] != Dictionaries_Pluto[index]['Dataset'].shape[1]:
+                   print(Fore.RED + "Dictionary rataplan:", Dictionaries_Rataplan[index]['name'],"Shape: ", Dictionaries_Rataplan[index]['Dataset'].shape)
+                   print(Fore.RED + "Dictionary Pluto: ", Dictionaries_Rataplan[index]['name'],"Shape: ", Dictionaries_Pluto[index]["Dataset"].shape)
+                   raise ValueError('Shape of the dataframes that you want to compare appear to be non-equal.')
+
+
+###############################################################################################################################################################################
+
+def Read_Headers(Dictionaries, Pluto_Path, Rataplan_Path):
+    for index in range(len(Dictionaries[0])):
+        filepath = os.path.join(Rataplan_Path, Dictionaries[0][index]['name'])
+        file = open(filepath, "r")
+        headers = pd.read_csv(file, sep='\t' , nrows=0, header=0, engine = 'python' , decimal=",")
+        Dictionaries[0][index]['headers'] = headers
+        file.close()
+    for index in range(len(Dictionaries[1])):
+        filepath = os.path.join(Pluto_Path, Dictionaries[1][index]['name'])
+        file = open(filepath, "r")
+        headers = pd.read_csv(file, sep='\t' , nrows=0, header=0, engine = 'python' , decimal=",")
+        Dictionaries[1][index]['headers'] = headers
+    return Dictionaries
+
+def Calculate_Averages(Dictionaries_Rataplan, Dictionaries_Pluto):
+    Dictionaries= [Dictionaries_Rataplan, Dictionaries_Pluto]
+    for index in range(len(Dictionaries)):
+        for Dictionary in Dictionaries[index]:
+            average = np.nanmean(Dictionary['Dataset'], axis=0)  # Calculate variances, averages, stdevs and medians for each column
+            stdev = np.nanstd(Dictionary['Dataset'], axis=0)
+            variance = np.nanvar(Dictionary['Dataset'], axis=0)
+            median = np.nanmedian(Dictionary['Dataset'], axis=0)
+            Dictionary['average'] = average
+            Dictionary['stdev'] = stdev
+            Dictionary['variance'] = variance
+            Dictionary['median'] = median
+            print(Fore.BLUE + "//////////////////////////////////////////////////////////////////////////////////////")
+            print(Fore.BLUE + "Filename: ", Dictionary['name'])
+            print("Dataframe shape", Dictionary['Dataset'].shape,"\n")
+            print("average: ", Dictionary['average'],"\n")
+            print("stdev: ", Dictionary['stdev'],"\n")
+            print("variance: ", Dictionary['variance'],"\n")
+            print("median: ", Dictionary['median'],"\n")
+    return Dictionaries
+
+def Print_Array_Shape(Dictionaries_Rataplan, Dictionaries_Pluto):
+    Dictionaries_Rataplan = sorted(Dictionaries_Rataplan, key=lambda x: x['name'])
+    Dictionaries_Pluto = sorted(Dictionaries_Pluto, key=lambda x: x['name'])
+    for Dictionary_Rataplan in Dictionaries_Rataplan:
+        for Dictionary_Pluto in Dictionaries_Pluto:
+            if (Dictionary_Pluto['name']== Dictionary_Rataplan['name']):
+                print('Dataset name Rataplan: ', Dictionary_Rataplan['name'], 'Dataset shape: ',Dictionary_Rataplan['Dataset'].shape)
+                print('Dataset name Pluto: ', Dictionary_Pluto['name'], 'Dataset shape: ', Dictionary_Pluto['Dataset'].shape)
+
+    print("length Dictionaries_Rataplan", len(Dictionaries_Rataplan))
+    print("length Dictionaries_Pluto", len(Dictionaries_Pluto))
+
+def Files_Read_In(Dictionaries_Rataplan, Dictionaries_Pluto):
+    print("The Rataplan files that were read in:")
+    tpl = tuple(map(lambda x: x['name'],Dictionaries_Rataplan))
+    print(tpl)
+    print("The Pluto files that were read in")
+    tpl = tuple(map(lambda x: x['name'], Dictionaries_Pluto))
+    print(tpl)
+
+def Calculate_Average_Ratio(Dictionaries):
+    for index in range(len(Dictionaries[0])):                           # len(Dictionaries[0]==len(Dictionaries[1]
+        Average_Ratio = np.divide(Dictionaries[0][index]['average'], Dictionaries[1][index]['average'])
+        Dictionaries[0][index]['average_ratio'] = Average_Ratio
+        Dictionaries[1][index]['average_ratio'] = Average_Ratio
+    return Dictionaries
+
+def plot_Average_Ratio(Dictionaries, Script_Path):
+
+    directory = "r_squared_graphs"               # Make directory to store all subdirectories (one for each important csv file)
+    path = Script_Path
+    dirpath = os.path.join(Script_Path, directory)
+    os.makedirs(dirpath, exist_ok=True)
+
+    for index in range(len(Dictionaries[0])):
+        if "integral" in Dictionaries[0][index]['name']:
+            subdirpath = os.path.join(dirpath, Dictionaries[0][index]['name'])        # make one subdir for each important csv file
+            os.makedirs(subdirpath, exist_ok=True)
+
+            slope, intercept, r_squared_value, p_value, std_err = sp.linregress(Dictionaries[0][index]['average'], Dictionaries[1][index]['average'])   # calculate R^2
+
+            fig, ax = plt.subplots()                                       # Create graphs for each column and save them in subdir
+            ax.scatter(Dictionaries[0][index]['average'], Dictionaries[1][index]['average'])
+            ax.set_ylabel(Dictionaries[0][index]['name'])
+            ax.set_ylabel(Dictionaries[1][index]['name'])
+            ax.set_title("Comparison of the averages: R^2 value = " + str(r_squared_value))
+            plt.savefig(subdirpath + "/" + Dictionaries[0][index]['name'] + ".png")
+            Dictionaries[0][index]['r_squared_value'] = r_squared_value
+    return Dictionaries
+
+def Calculate_Ttest(Dictionaries):
+
+    for index in range(len(Dictionaries[0])):
+        print(Fore.GREEN + "Statistical t-Tests filename: ", Dictionaries[0][index]['name'])
+        array1 = Dictionaries[0][index]['Dataset']
+        array2 = Dictionaries[1][index]['Dataset']
+        print('array1: ', array1.shape)
+        print('array2: ', array2.shape)
+        Results_ttest = sp.ttest_ind(array1, array2, equal_var=False, alternative='two-sided',nan_policy='omit', axis=0)
+        Dictionaries[0][index]["Statistical t-Tests"] = Results_ttest
+        Dictionaries[1][index]['Statistical t-Tests'] = Results_ttest
+        print("t-test values: ","\n", Results_ttest[1])
+        print("////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////")
+
+def Calculate_FStatistic(Dictionaries):
+    for index in range(len(Dictionaries[0])):
+        print(Fore.MAGENTA + "Statistical f-Tests filename: ", Dictionaries[0][index]['name'])
+        print("Dataset shape", Dictionaries[0][index]['Dataset'].shape)
+        array1 = Dictionaries[0][index]['Dataset']
+        array2 = Dictionaries[1][index]['Dataset']
+        print("array1", array1[:10, :])
+        print('\n', 'array2: ', array2[:10, :])
+        f1 = np.divide(np.nanvar(array1, axis=0), np.nanvar(array2, axis=0))  # calculate F test statistic; maybe removed ddof for population
+        f2 = np.divide(np.nanvar(array2, axis=0), np.nanvar(array1, axis=0))  # is used when f1<1
+        Dictionaries[0][index]['F1-values'] = f1
+        Dictionaries[0][index]['F2-values'] = f2
+        Dictionaries[1][index]['F1-values'] = f1
+        Dictionaries[1][index]['F2-values'] = f2
+        print("////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////")
+    return Dictionaries
+
+
+def Calculate_Ftest(Dictionaries):
+    for index in range(len(Dictionaries[0])):
+        dfd = Dictionaries[0][index]['Dataset'].shape[0] - 1  # define degrees of freedom denominator
+        dfn = Dictionaries[1][index]['Dataset'].shape[0] - 1  # define degrees of freedom numerator
+        p_values=[]
+        for columnindex in range(len(Dictionaries[0][index]['F1-values'])):
+            if not np.isnan(Dictionaries[0][index]['F1-values'][columnindex]):
+                if (Dictionaries[0][index]['F1-values'][columnindex] >= 1):
+                    p = 1 - sp.f.cdf(Dictionaries[0][index]['F1-values'][columnindex], dfn, dfd)
+                    p_values.append(p)
+                    #print("F1 that should be larger or equal to 1: ", Dictionaries[0][index]['F1-values'][columnindex])
+                else:
+                    p = 1 - sp.f.cdf(Dictionaries[0][index]['F2-values'][columnindex], dfd, dfn)
+                    p_values.append(p)
+                    #print("F2 that should be larger or equal to 1: ", Dictionaries[0][index]['F2-values'][columnindex])
+        p_values = np.array(p_values)
+        Dictionaries[0][index]['Statistical f-tests'] = p_values
+    return Dictionaries
+
+def Write_Results_to_file(Dictionary1, Dictionary2, file, Pluto_path, Rataplan_path):
+    file.write("////////////////////////////////////////////////////////////////////////FILENAME: " + str(Dictionary1['name'] + "///////////////////////////////////////////////////////////////////////////////////////////////////" + "\n"))
+    file.write("\n" + "Path 1: " + str(Pluto_path) + str(Dictionary1['name']) + "\n")
+    file.write("Path 2: " + str(Rataplan_path) + str(Dictionary2['name']) + "\n")
+    file.write("\n" + "Rows: " + str(Dictionary1['Dataset'].shape[0]) + "  Columns: " + str(Dictionary1['Dataset'].shape[1]) + "\n")
+
+    file.write("\n" + "Averages ratios: " + "\n")
+    for index in range(len(Dictionary1['average_ratio'])):
+        colindex = Dictionary1['cols'][index]
+        colheader = Dictionary1['headers'].columns[colindex]
+        colindex2 = Dictionary2['cols'][index]
+        colheader2 = Dictionary2['headers'].columns[colindex2]
+        file.write("Averages ratio column " + str(index) + ": " + str(Dictionary1['average_ratio'][index]) +"                        " + str(colheader) +"      vs.        " + str(colheader2)+ '\n')
+
+
+
+    if (len(Dictionary1['average']) > 30 and Feedback):
+        file.write("\n")
+
+    if Feedback:
+        if (len(Dictionary1['average']) < 30):
+            file.write("\n" + "Calculation results file 1." + "\n")
+            file.write("Average:" + "\n" + str(Dictionary1['average']) + "\n")
+            file.write("Stdev: " + "\n" + str(Dictionary1['stdev']) + "\n")
+            file.write("Variance:" + "\n" + str(Dictionary1['variance']) + "\n")
+            file.write("Median: " + "\n" + str(Dictionary1['median']) + "\n")
+
+            file.write("\n" + "Calculation results file 2." + "\n")
+            file.write("Average:" + "\n" + str(Dictionary2['average']) + "\n")
+            file.write("Stdev: " + "\n" + str(Dictionary2['stdev']) + "\n")
+            file.write("Variance: " + "\n" + str(Dictionary2['variance']) + "\n")
+            file.write("Median: " + "\n" + str(Dictionary2['median']) + "\n")
+            file.write("\n")
+    else:
+        file.write("\n" + "Calculation results file 1." + "\n")
+        file.write("Average:" + "\n" + str(Dictionary1['average']) + "\n")
+        file.write("Stdev: " + "\n" + str(Dictionary1['stdev']) + "\n")
+        file.write("Variance:" + "\n" + str(Dictionary1['variance']) + "\n")
+        file.write("Median: " + "\n" + str(Dictionary1['median']) + "\n")
+
+        file.write("\n" + "Calculation results file 2." + "\n")
+        file.write("Average:" + "\n" + str(Dictionary2['average']) + "\n")
+        file.write("Stdev: " + "\n" + str(Dictionary2['stdev']) + "\n")
+        file.write("Variance: " + "\n" + str(Dictionary2['variance']) + "\n")
+        file.write("Median: " + "\n" + str(Dictionary2['median']) + "\n")
+        file.write("\n")
+    return file
+
+def Generate_File(Dictionary1, Dictionary2, file):
+    '''
+    print(Fore.LIGHTCYAN_EX + "Filename: ", Dictionary1['name'])
+    print("Statistical t-tests", Dictionary1['Statistical t-Tests'])
+    print("Statistical f-tests", Dictionary1['Statistical f-tests'])
+    '''
+
+    file.write("\n" + "Statistical t-tests:" + "\n")
+    for column in range(len(Dictionary1["Statistical t-Tests"][1])):
+            file.write("Column " + str(column) + ": " + str(Dictionary1['Statistical t-Tests'][1][column]) +"\n")  # Dictionary1[statistical t-Tests bevat tuple van 2 arrays]
+
+    file.write("\n" + "Statistical f-tests:" + "\n")
+    for column,ftestvalue in enumerate(Dictionary1['Statistical f-tests']):
+        file.write("Column " + str(column) + ": " + str(ftestvalue) +"\n")
+    file.write("\n")
+    return file
+
+def print_arrays(Dictionaries_Pluto, Dictionaries_Rataplan):
+    for Dictionary_Rataplan in Dictionaries_Rataplan:
+        for Dictionary_Pluto in Dictionaries_Pluto:
+            if Dictionary_Rataplan['name'] == Dictionary_Pluto['name']:
+               print(Fore.LIGHTMAGENTA_EX + "Array name:", Dictionary_Rataplan['name'])
+               print(Fore.RED + "Array Rataplan:",'\n', Dictionary_Rataplan['Dataset'][:10, :])
+               print(Fore.GREEN + "Array Pluto:",'\n', Dictionary_Pluto['Dataset'][:10, :])
+               print(Fore.BLACK + "Array shapes: ", Fore.RED, Dictionary_Rataplan['Dataset'].shape, Fore.GREEN, Dictionary_Pluto['Dataset'].shape)
+
+
+
+# Raises a valueerror whenever the R^2 value gets too high for important files
+def Crucial_Data_Interpretation(Dictionaries, RSquaredBoundary, AverageRatioUpper, AverageRatioLower, TTestBoundary, FTestBoundary):
+    with open("Warnings.txt", "x") as file2:
+         for index in range(len(Dictionaries[0])):
+             if "integral" in Dictionaries[0][index]['name']:
+                 file2.write("///////////////////////////////////////////////" + "Filename: " + str(Dictionaries[0][index]['name'] + "//////////////////////////////////////////////////////////////////" + "\n"))
+                 for column in range(Dictionaries[0][index]["Dataset"].shape[1]):
+                     BoundariesFulfilled = True
+                     if Dictionaries[0][index]['r_squared_value'] < RSquaredBoundary:
+                        file2.write("\n" +"Column: " + str(column) + " => R squared value too low!"  + "\n")
+                        file2.write("R squared value is " + str(Dictionaries[0][index]['r_squared_value']) + " and boundary is set at "+ str(RSquaredBoundary)  + "\n")
+                        BoundariesFulfilled = False
+                     if Dictionaries[0][index]['average_ratio'][column] > 1.01 or Dictionaries[0][index]['average_ratio'][column] < 0.99:
+                         file2.write("\n" +"Column: " + str(column) + " => average_ratio differs too hard!"  + "\n")
+                         file2.write("Average ratio value is " + str(Dictionaries[0][index]['average_ratio'][column]) + " and lower boundary is set at " + str(AverageRatioLower) + " and upper boundary is set at " + str(AverageRatioUpper)  + "\n")
+                         BoundariesFulfilled = False
+                     if Dictionaries[0][index]['Statistical t-Tests'][1][column] < TTestBoundary:
+                         file2.write("\n" +"Column: " + str(column) + " => T test value too low!"  + "\n")
+                         file2.write("T test value is " + str(Dictionaries[0][index]['Statistical t-Tests'][1][column]) + " and boundary is set at " + str(TTestBoundary)  + "\n")
+                         BoundariesFulfilled = False
+                     if Dictionaries[0][index]['Statistical f-tests'][column] < FTestBoundary:
+                         file2.write("\n" +"Column: " + str(column) + " => F test value too low!"  + "\n")
+                         file2.write("F test value is " + str(Dictionaries[0][index]['Statistical f-tests'][column]) + " and boundary is set at " + str(FTestBoundary)  + "\n")
+                         BoundariesFulfilled = False
+                     if BoundariesFulfilled:
+                         file2.write("\n" + "All boundaries fulfilled for column: " + str(column) + "\n")
+                 file2.write("\n")
+    file2.close()
+
+if __name__ == "__main__":
+   Script_Path=r'C:\Users\Vincent2\PycharmProjects\Carbyonscript'
+   Rataplan_Path=r'C:\Users\Vincent2\PycharmProjects\Carbyonscript\vincent_share_0568\output'
+   Pluto_Path= r'C:\Users\Vincent2\PycharmProjects\Carbyonscript\vincent_share_0568\pluto'
+   Feedback = False  #if true then also print all averages, stdevs, medians and variances for every column when dataframe > 30 rows (Pluto sometimes has 10000+ rows be aware)
+####################################################################'BOUNDARIES'######################################################################################################################
+   RSquaredBoundary = 0.995            #R^2                        # Adjust boundaries here
+   AverageRatioUpper = 1.01            #average1/average2 if avg1>avg2
+   AverageRatioLower = 0.99            #average1/average2 if avg2>avg1
+   TTestBoundary = 0.90                #Ttest lower boundary
+   FTestBoundary = 0.40                #Ftest lower boundary
+######################################################################################################################################################################################################
+   np.set_printoptions(threshold=sys.maxsize)    #Makes sure that every array is printed out entirely, USE SLICING to print out all columns and e.g. 10 rows
+   Files_Rataplan=Find_Files(Rataplan_Path)     # Finds all csv files of Rataplan and Pluto
+   Files_Pluto=Find_Files(Pluto_Path)
+
+   Remove_File=Ask_Remove_File()            # Returns the file that you want to remove letters from
+   letters=Ask_Remove_Letters()             #Ask to remove a certain pattern from the filename e.g. 20230308_De_raw_curves => De_raw_curves
+   Remove_File=Manage_Filenames(Files_Rataplan, Files_Pluto, Remove_File, letters)     #Manage_Filenames() removes the pattern
+   Corresponding_Files=Find_Corresponding_Files(Files_Pluto, Files_Rataplan, Remove_File, letters)        #Takes in all the csv files of Pluto and Ratplan and appends the one that are outputted by both
+
+   Dictionaries_Pluto= Read_Pluto(Files_Pluto, Corresponding_Files, Remove_File, letters, Pluto_Path)       # Reading in the files
+   Dictionaries_Rataplan = Read_Rataplan(Files_Rataplan, Corresponding_Files, Remove_File, letters, Rataplan_Path)
+
+   Print_Array_Shape(Dictionaries_Rataplan, Dictionaries_Pluto)           # Print the shape of the arrays that were read in
+   Files_Read_In(Dictionaries_Rataplan, Dictionaries_Pluto)               # Prints which files were read in
+   print_arrays(Dictionaries_Pluto, Dictionaries_Rataplan)
+
+
+   check_shapes(Dictionaries_Pluto, Dictionaries_Rataplan, Corresponding_Files)  # Raises a valueerror when the shapes of the dataframes are not equal
+
+   Dictionaries=Calculate_Averages(Dictionaries_Rataplan, Dictionaries_Pluto)     # Calculates averages, variances, stdevs, medians
+   Calculate_Average_Ratio(Dictionaries)                                           # Calculate the ratio of the averages
+   plot_Average_Ratio(Dictionaries, Script_Path)                                   # Calculates linregress for all columns and all files
+   Calculate_Ttest(Dictionaries)                                                   # Calculates t-test p value for all columns and all files
+   Calculate_FStatistic(Dictionaries)                                              # Calculates value for FStatistic for all columns and all files
+   Calculate_Ftest(Dictionaries)                                                   # Calculates Ftest for all columns and all files
+   Read_Headers(Dictionaries, Pluto_Path, Rataplan_Path)
+   Crucial_Data_Interpretation(Dictionaries, RSquaredBoundary, AverageRatioUpper, AverageRatioLower, TTestBoundary, FTestBoundary)
+
+
+   with open("Statistics.txt", "x") as file:                              # Generates text file with all the calculated data (except for R^2)
+        for index, Dictionary1 in enumerate(Dictionaries[0]):
+            Dictionary2 = Dictionaries[1][index]
+            Write_Results_to_file(Dictionary1, Dictionary2, file, Pluto_Path, Rataplan_Path)
+            Generate_File(Dictionary1, Dictionary2, file)
+   file.close()
+   print(Fore.YELLOW + "Program executed :)")
+   print("You can find the results of the calculations as Statistics.txt and the graphs in the r_squared_graphs folder of this script.")
+
+
